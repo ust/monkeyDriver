@@ -1,0 +1,35 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<?xml-stylesheet type="text/xsl" href="sms.xsl"?>
+<!--File Created By SMS Backup & Restore v7.46 on 11/01/2016 23:18:05-->
+<smses count="2">
+    <sms protocol="0"
+         address="OTP Bank"
+         date="1452514031508"
+         type="1"
+         subject="null"
+         body="10/01 12:36&#10;Splata za tovar/poslugu.&#10;Kartka *5768. Suma:&#10;201.91 UAH. Misce:&#10;SHOP KUMUSHKA CHEKISTI. &#10;Zalyshok: 2631.6 UAH"
+         toa="null"
+         sc_toa="null"
+         service_center="+380443736994"
+         read="1"
+         status="-1"
+         locked="0"
+         date_sent="1452514027000"
+         readable_date="11 Jan 2016 14:07:11"
+         contact_name="(Unknown)" />
+    <sms protocol="0"
+         address="OTP Bank"
+         date="1452347917869"
+         type="1"
+         subject="null"
+         body="09/01 15:58&#10;Otrymannya gotivky v ATM.&#10;Kartka *6130. Suma:&#10;500 UAH. Misce:&#10;OTP BANK ATM UAH. &#10;Zalyshok: 3533.99 UAH"
+         toa="null"
+         sc_toa="null"
+         service_center="+380443736994"
+         read="1"
+         status="-1"
+         locked="0"
+         date_sent="1452347916000"
+         readable_date="9 Jan 2016 15:58:37"
+         contact_name="(Unknown)" />
+</smses>
