@@ -1,15 +1,16 @@
 package com.yrrlsv.fin;
 
 import java.util.List;
+import java.util.Optional;
 
 public class ConsoleTemplateProvider implements TemplateProvider {
     @Override
-    public Template newTemplate() {
+    public Optional<Template> newTemplate(String message) {
         return null;
     }
 
     @Override
-    public Template chooseTemplate(List<Template> templates) {
+    public Event chooseTemplate(List<Event> templates) {
         return null;
     }
 }

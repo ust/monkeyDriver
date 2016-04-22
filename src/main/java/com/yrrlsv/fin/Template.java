@@ -1,15 +1,25 @@
 package com.yrrlsv.fin;
 
-import java.util.Set;
+import java.util.List;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class Template {
     private EventType type;
     private Pattern pattern;
+    private List<Placeholder> placeholders;
 
-    public Template(EventType type, String regex) {
+    public Template(EventType type, String regex, List<Field> fields) {
         this.type = type;
         this.pattern = Pattern.compile(regex);
+        this.placeholders = fields.stream().map(field -> new Placeholder(field, null))
+                .collect(Collectors.toList());
+    }
+
+    public Template(EventType type, String regex, List<Placeholder> fields, Boolean flag) {
+        this.type = type;
+        this.pattern = Pattern.compile(regex);
+        this.placeholders = placeholders;
     }
 
     public Pattern pattern() {
@@ -28,7 +38,6 @@ public class Template {
         Template template = (Template) o;
 
         return type == template.type && pattern.equals(template.pattern);
-
     }
 
     @Override
@@ -44,5 +53,9 @@ public class Template {
                 "type=" + type +
                 ", pattern=" + pattern.toString().replaceAll("\n", "\\n") +
                 '}';
+    }
+
+    public List<Placeholder> placeholders() {
+        return placeholders;
     }
 }

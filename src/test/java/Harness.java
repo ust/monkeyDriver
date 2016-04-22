@@ -85,4 +85,36 @@ public class Harness {
 //                + " | [accountNumber] = " + matcher.group(2);
 //        System.out.println(outputText);
     }
+
+    @Test public void placeholdersColision() {
+        String sms = "08/01 18:34\nSplata za tovar poslugu.\n" + // 36
+                "Kartka *5768. Suma\n196.21 UAH. " + // 67
+                "Misce:\nSHOP KUMUSHKA CHEKISTI.\n" + // 98
+                "Zalyshok: 2833.51";
+
+        String template = "(.+)\n" +
+                "Splata za tovar poslugu.\n" +
+                "Kartka (.+). Suma\n" +
+                "(.+) UAH. Misce:\n(.+).\n" +
+                "Zalyshok: (.+)";
+        String template2 = "(.+)\n" +
+                "Splata za tovar poslugu.\n" +
+                "Kartka (.+). Suma\n" +
+                "(.+) (.+). Misce:\n(.+).\n" +
+                "Zalyshok: (.+)";
+
+        printPlaceholders(template, sms);
+        printPlaceholders(template2, sms);
+}
+
+    private void printPlaceholders(String template, String sms) {
+        Matcher matcher = Pattern.compile(template).matcher(sms);
+        System.out.println("------------------------count: " + matcher.groupCount());
+        if (matcher.find()) {
+            for (int i = 1; i <= matcher.groupCount(); i++) {
+                String group = matcher.group(i);
+                System.out.println(group);
+            }
+        }
+    }
 }

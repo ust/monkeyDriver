@@ -1,10 +1,26 @@
 package com.yrrlsv.fin;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.Currency;
 import java.util.Map;
 
 public class Event {
     private EventType type;
+
+    private String payer;
+    private String recipient;
+    private Currency currency;
+    private LocalDateTime date;
+    private BigDecimal amount;
+    private BigDecimal balance;
+
     private Map<Field, String> data;
+
+    public static Event failed(String message) {
+        return new Event(EventType.failed, Collections.singletonMap(Field.source, message));
+    }
 
     public Event(EventType type, Map<Field, String> data) {
         this.type = type;
@@ -42,4 +58,5 @@ public class Event {
                 ", data=" + data +
                 '}';
     }
+
 }

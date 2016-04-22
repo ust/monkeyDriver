@@ -1,9 +1,9 @@
 package com.yrrlsv.fin;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 
 public class DumpReader {
 
@@ -24,33 +24,27 @@ public class DumpReader {
         this.templateProvider = templateProvider;
         this.dataProvider = dataProvider;
         this.eventBus = eventBus;
-        this.coreService = new CoreService();
-        if (templates != null) {
-            for (Template template : templates) {
-                this.coreService.addTemplate(template);
-            }
-        }
+        this.coreService = new CoreService(new HashSet<>(templates));
     }
 
     public void execute() {
-        List<String> failed = new ArrayList<>();
         for (String message = dataProvider.nextMessage(); message != null; message = dataProvider.nextMessage()) {
 
-            List<Template> templates = coreService.seekTemplate(message);
-            Template template = null;
-            if (templates.isEmpty()) {
-                //template = templateProvider.newTemplate();
-                //coreService.addTemplate(template);
-                failed.add(message);
-            } else if (templates.size() == 1) {
-                template = templates.get(0);
+            List<Event> results = coreService.parse(message);
+            Event event = null;
+            if (results.isEmpty()) {
+                Optional<Template> templateOptional = templateProvider.newTemplate(message);
+                if (templateOptional.isPresent()) {
+                    coreService.addTemplate(templateOptional.get());
+                    event = coreService.newEvent(templateOptional.get(), message).get();
+                }
+            } else if (results.size() == 1) {
+                event = results.get(0);
             } else {
-                template = templateProvider.chooseTemplate(templates);
+                event = templateProvider.chooseTemplate(results);
             }
 
-            eventBus.fire(template != null
-                    ? coreService.createEvent(template, message)
-                    : new Event(EventType.failed, Collections.singletonMap(Field.source, message)));
+            eventBus.fire(event != null ? event : Event.failed(message));
         }
     }
 

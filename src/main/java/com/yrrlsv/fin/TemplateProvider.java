@@ -1,9 +1,12 @@
 package com.yrrlsv.fin;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface TemplateProvider {
-    Template newTemplate();
 
-    Template chooseTemplate(List<Template> templates);
+    Optional<Template> newTemplate(String message);
+
+    Event chooseTemplate(List<Event> templates);
+
 }
