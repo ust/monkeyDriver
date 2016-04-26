@@ -1,17 +1,30 @@
+import com.yrrlsv.fin.CoreService;
+import com.yrrlsv.fin.EventType;
+import com.yrrlsv.fin.Field;
+import com.yrrlsv.fin.FieldLocator;
 import com.yrrlsv.fin.Message;
 import com.yrrlsv.fin.Messages;
+import com.yrrlsv.fin.Template;
+import org.hamcrest.core.Is;
+import org.junit.Assert;
 import org.junit.Test;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Unmarshaller;
 import java.io.StringReader;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static org.hamcrest.core.Is.is;
+import static org.junit.Assert.assertThat;
+
 public class Harness {
 
-    @Test public void loadFile() {
+    @Test
+    public void loadFile() {
         System.out.println(getClass().getResource("otp_charge_1.xml"));
     }
 
@@ -47,6 +60,17 @@ public class Harness {
         System.out.println(messages);
     }
 
+    private void printPlaceholders(String template, String sms) {
+        Matcher matcher = Pattern.compile(template).matcher(sms);
+        System.out.println("------------------------count: " + matcher.groupCount());
+        if (matcher.find()) {
+            for (int i = 1; i <= matcher.groupCount(); i++) {
+                String group = matcher.group(i);
+                System.out.println(group);
+            }
+        }
+    }
+
     @Test
     public void pattern() {
         String sms = "08/01 18:34\nSplata za tovar poslugu.\n" + // 36
@@ -60,33 +84,18 @@ public class Harness {
                 "Misce: (.+). " +
                 "Zalyshok: (.+)";
 
-        Matcher matcher = Pattern.compile(template).matcher(sms);
-        System.out.println("count: " + matcher.groupCount());
-        if (matcher.find()) {
-            for (int i = 1; i <= matcher.groupCount(); i++) {
-                System.out.println(matcher.group(i));
-            }
-        }
+        printPlaceholders(template, sms);
     }
 
     @Test
     public void explained() {
         String text = "Thanks, this is your value : 100. And this is your account number : 219AD098";
-        Pattern pattern = Pattern
-                .compile("Thanks, this is your value : (.+). And this is your account number : (.+)");
-        Matcher matcher = pattern.matcher(text);
-        System.out.println("count: " + matcher.groupCount());
-        if (matcher.find()) {
-            for (int i = 1; i <= matcher.groupCount(); i++) {
-                System.out.println(matcher.group(i));
-            }
-        }
-//        String outputText = "[value] = " + matcher.group(1)
-//                + " | [accountNumber] = " + matcher.group(2);
-//        System.out.println(outputText);
+        String regex = "Thanks, this is your value : (.+). And this is your account number : (.+)";
+        printPlaceholders(regex, text);
     }
 
-    @Test public void placeholdersColision() {
+    @Test
+    public void placeholdersColision() {
         String sms = "08/01 18:34\nSplata za tovar poslugu.\n" + // 36
                 "Kartka *5768. Suma\n196.21 UAH. " + // 67
                 "Misce:\nSHOP KUMUSHKA CHEKISTI.\n" + // 98
@@ -102,19 +111,33 @@ public class Harness {
                 "Kartka (.+). Suma\n" +
                 "(.+) (.+). Misce:\n(.+).\n" +
                 "Zalyshok: (.+)";
+        String template3 = "(.+)\n" +
+                "Splata za tovar poslugu.\n" +
+                "Kartka (.+). Suma\n" +
+                "(.+)(.+). Misce:\n(.+).\n" +
+                "Zalyshok: (.+)";
 
-        printPlaceholders(template, sms);
-        printPlaceholders(template2, sms);
-}
+//        printPlaceholders(template, sms);
+//        printPlaceholders(template2, sms);
+        printPlaceholders(template3, sms);
+    }
 
-    private void printPlaceholders(String template, String sms) {
-        Matcher matcher = Pattern.compile(template).matcher(sms);
-        System.out.println("------------------------count: " + matcher.groupCount());
-        if (matcher.find()) {
-            for (int i = 1; i <= matcher.groupCount(); i++) {
-                String group = matcher.group(i);
-                System.out.println(group);
-            }
-        }
+    @Test
+    public void mergePlaceholders() {
+        int none = Field.none.ordinal();
+        CoreService core = new CoreService(Collections.emptySet(), Collections.emptySet());
+
+        String text =     "----------AAAAA-----BBBBBCCCCC-----NNNNN"; // 10 + 5 + 5 + 5+5
+        String expected = "----------(.+)-----(.+)-----NNNNN";
+        Template template = core.newTemplate(text, EventType.failed,
+                FieldLocator.listOf(new int[][]{{none, 10, 15}, {none, 20, 25}, {none, 25, 30}}));
+        assertThat(template.pattern().pattern(), is(expected));
+
+
+        String text2 =     "AAAAA-----BBBBBCCCCC-----NNNNN"; // 0 + 5 + 5 + 5+5
+        String expected2 = "(.+)-----(.+)-----NNNNN";
+        Template template2 = core.newTemplate(text2, EventType.failed,
+                FieldLocator.listOf(new int[][]{{none, 0, 5}, {none, 10, 15}, {none, 15, 20}}));
+        assertThat(template2.pattern().pattern(), is(expected2));
     }
 }

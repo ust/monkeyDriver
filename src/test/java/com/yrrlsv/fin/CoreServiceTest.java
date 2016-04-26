@@ -9,6 +9,7 @@ import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -50,9 +51,9 @@ public class CoreServiceTest {
             "Zalyshok: (.+) UAH";
 
 
-    private static final Template TEMPLATE_1 = new Template(EventType.charge, REGEX_1,
+    private static final Template TEMPLATE_1 = Template.flatTemplate(EventType.charge, REGEX_1,
             Arrays.asList(date, account, amount, shop, balance));
-    private static final Template TEMPLATE_2 = new Template(EventType.charge, REGEX_2,
+    private static final Template TEMPLATE_2 = Template.flatTemplate(EventType.charge, REGEX_2,
             Arrays.asList(date, account, amount, shop, balance));
 
     private static final Map<Field, String> DATA_1 = new ImmutableMap.Builder<Field, String>()
@@ -72,7 +73,7 @@ public class CoreServiceTest {
 
     @Before
     public void cleanUp() {
-        core = new CoreService(new HashSet<>());
+        core = new CoreService(new HashSet<>(), Collections.emptySet());
     }
 
     @Test

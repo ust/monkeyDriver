@@ -1,16 +1,33 @@
 package com.yrrlsv.fin;
 
-class Placeholder {
+import org.jetbrains.annotations.NotNull;
 
-    private Field field;
-    private Placeholder placeholder;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 
-    protected Placeholder(Field field, Placeholder placeholder) {
-        this.field = field;
-        this.placeholder = placeholder;
+public class Placeholder {
+
+    private List<Field> fields;
+
+    public static Placeholder of(Field... fields) {
+        return new Placeholder(Arrays.asList(fields));
     }
 
-    public Field field() {
-        return field;
+    Placeholder(@NotNull List<Field> fields) {
+        if (fields.isEmpty())
+            throw new IllegalArgumentException();
+        this.fields = fields;
+    }
+
+    public List<Field> fields() {
+        return fields;
+    }
+
+    @Override
+    public String toString() {
+        return "Placeholder{" +
+                "fields=" + fields +
+                '}';
     }
 }
