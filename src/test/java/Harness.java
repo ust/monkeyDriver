@@ -1,3 +1,6 @@
+import com.joestelmach.natty.DateGroup;
+import com.joestelmach.natty.ParseLocation;
+import com.joestelmach.natty.Parser;
 import com.yrrlsv.fin.CoreService;
 import com.yrrlsv.fin.EventType;
 import com.yrrlsv.fin.Field;
@@ -5,8 +8,6 @@ import com.yrrlsv.fin.FieldLocator;
 import com.yrrlsv.fin.Message;
 import com.yrrlsv.fin.Messages;
 import com.yrrlsv.fin.Template;
-import org.hamcrest.core.Is;
-import org.junit.Assert;
 import org.junit.Test;
 
 import javax.xml.bind.JAXBContext;
@@ -14,7 +15,9 @@ import javax.xml.bind.JAXBException;
 import javax.xml.bind.Unmarshaller;
 import java.io.StringReader;
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -125,19 +128,56 @@ public class Harness {
     @Test
     public void mergePlaceholders() {
         int none = Field.none.ordinal();
-        CoreService core = new CoreService(Collections.emptySet(), Collections.emptySet());
+        CoreService core = new CoreService(Collections.emptySet());
 
-        String text =     "----------AAAAA-----BBBBBCCCCC-----NNNNN"; // 10 + 5 + 5 + 5+5
+        String text = "----------AAAAA-----BBBBBCCCCC-----NNNNN"; // 10 + 5 + 5 + 5+5
         String expected = "----------(.+)-----(.+)-----NNNNN";
         Template template = core.newTemplate(text, EventType.failed,
                 FieldLocator.listOf(new int[][]{{none, 10, 15}, {none, 20, 25}, {none, 25, 30}}));
         assertThat(template.pattern().pattern(), is(expected));
 
 
-        String text2 =     "AAAAA-----BBBBBCCCCC-----NNNNN"; // 0 + 5 + 5 + 5+5
+        String text2 = "AAAAA-----BBBBBCCCCC-----NNNNN"; // 0 + 5 + 5 + 5+5
         String expected2 = "(.+)-----(.+)-----NNNNN";
         Template template2 = core.newTemplate(text2, EventType.failed,
                 FieldLocator.listOf(new int[][]{{none, 0, 5}, {none, 10, 15}, {none, 15, 20}}));
         assertThat(template2.pattern().pattern(), is(expected2));
+    }
+
+    @Test
+    public void hollyDateParser() {
+        //analyzeHollyParser("\n\tthe day before next thursday");
+//        analyzeHollyParser("1419248795000");
+        analyzeHollyParser("OTPdirekt:22.12.14 13:46: " +
+                "Splata za tovar/poslugu. " +
+                "Kartka *8310. " +
+                "Suma: -138,00UAH . " +
+                "Misce: PIZZERIA MARIOS KYIV. " +
+                "Zalyshok: 7.732,95UAH.");
+    }
+
+    private void analyzeHollyParser(String value) {
+        Parser parser = new Parser();
+        List<DateGroup> groups = parser.parse(value);
+        System.out.println("---groups:" + groups);
+        for (DateGroup group : groups) {
+            System.out.println("---group:" + group);
+            List dates = group.getDates();
+            System.out.println("dates:" + dates);
+            int line = group.getLine();
+            int column = group.getPosition();
+            System.out.println("line:" + line + "   column: " + column + "    absolute: " + group.getAbsolutePosition());
+            System.out.println(group.getFullText());
+            String matchingValue = group.getText();
+            System.out.println("matchingValue:" + matchingValue);
+
+            String syntaxTree = group.getSyntaxTree().toStringTree();
+            System.out.println("syntaxTree:" + syntaxTree);
+            Map<String, List<ParseLocation>> parseMap = group.getParseLocations();
+            System.out.println("parseMap:" + parseMap);
+            boolean isRecurreing = group.isRecurring();
+            Date recursUntil = group.getRecursUntil();
+            System.out.println("recursUntil:" + recursUntil);
+        }
     }
 }

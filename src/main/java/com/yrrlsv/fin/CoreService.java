@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -21,12 +22,14 @@ public class CoreService {
     public static final String BROAD_PLACEHOLDER = "(.+)";
 
     private Set<Template> templates;
-    private EnumMap<Field, Parser> parsers;
+    private Map<Field, Parser> parsers;
 
-    public CoreService(Set<Template> templates, Set<Parser> parsers) {
-        this.parsers = new EnumMap<>(Field.class);
-        parsers.forEach(p -> this.parsers.put(p.type(), p));
+    public CoreService(Set<Template> templates) {
         this.templates = templates;
+        parsers = new EnumMap<>(Field.class);
+        for (Field f : Field.fields) {
+            parsers.put(f, Parser.create(f).get());
+        }
     }
 
     public List<Event> parse(@NotNull String text) {
@@ -41,7 +44,7 @@ public class CoreService {
             Event.Builder builder = new Event.Builder();
             int i = 1;
             for (Placeholder placeholder : template.placeholders()) {
-                List<Event.Builder> cases = new CombinatorialTask(placeholder.fields(), matcher.group(i++)).search();
+                List<Event.Builder> cases = new CombinatorialTask(placeholder.fields(), matcher.group()).search();
                 if (cases.size() == 1) {
                     builder.merge(cases.get(0));
                 } else {

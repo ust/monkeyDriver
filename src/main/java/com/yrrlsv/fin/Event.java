@@ -130,12 +130,13 @@ public class Event {
             }
         }
 
-        public String getPayer() {
+        public String payer() {
             return payer;
         }
 
-        public void setPayer(String payer) {
+        public Builder payer(String payer) {
             this.payer = payer;
+            return this;
         }
 
         public String getRecipient() {
@@ -150,32 +151,36 @@ public class Event {
             return currency;
         }
 
-        public void setCurrency(Currency currency) {
+        public Builder setCurrency(Currency currency) {
             this.currency = currency;
+            return this;
         }
 
-        public LocalDateTime getDate() {
+        public LocalDateTime date() {
             return date;
         }
 
-        public void setDate(LocalDateTime date) {
+        public Builder date(LocalDateTime date) {
             this.date = date;
+            return this;
         }
 
-        public BigDecimal getAmount() {
+        public BigDecimal amount() {
             return amount;
         }
 
-        public void setAmount(BigDecimal amount) {
+        public Builder amount(BigDecimal amount) {
             this.amount = amount;
+            return this;
         }
 
-        public BigDecimal getBalance() {
+        public BigDecimal balance() {
             return balance;
         }
 
-        public void setBalance(BigDecimal balance) {
+        public Builder balance(BigDecimal balance) {
             this.balance = balance;
+            return this;
         }
 
     }

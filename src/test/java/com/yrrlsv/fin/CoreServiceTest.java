@@ -9,7 +9,6 @@ import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -73,7 +72,7 @@ public class CoreServiceTest {
 
     @Before
     public void cleanUp() {
-        core = new CoreService(new HashSet<>(), Collections.emptySet());
+        core = new CoreService(new HashSet<>());
     }
 
     @Test

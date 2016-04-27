@@ -195,7 +195,7 @@ public class DumpReaderTest {
                         otp_deposit_usd, otp_deposit_uah,
                         otp_deposit_withdraw_uah,
                         otp_promo_dep, otp_promo_cap, otp_promo_mc, otp_promo_tour, otp_lounge, otp_promo_hot, otp_info
-                )).execute();
+                )).maxErrors(3).execute();
 
         Map<EventType, List<Event>> types =
                 bus.events().stream().collect(Collectors.groupingBy(Event::type));
@@ -242,7 +242,8 @@ public class DumpReaderTest {
     }
 
     private void printAccountsStat(List<Event> events) {
-        events.stream().collect(Collectors.groupingBy(event -> event.data().get(account), Collectors.counting()))
-                .forEach((eventType, count) -> System.out.println(String.format("\t%s, %d", eventType, count)));
+        if (events != null)
+            events.stream().collect(Collectors.groupingBy(event -> event.data().get(account), Collectors.counting()))
+                    .forEach((eventType, count) -> System.out.println(String.format("\t%s, %d", eventType, count)));
     }
 }

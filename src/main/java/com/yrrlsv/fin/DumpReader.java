@@ -19,6 +19,7 @@ public class DumpReader {
     private DataProvider dataProvider;
     private CoreService coreService;
     private EventBus eventBus;
+    private int errorsThreshold = Integer.MAX_VALUE;
 
     public DumpReader(TemplateProvider templateProvider, DataProvider dataProvider, EventBus eventBus, Collection<Template> templates) {
         this.templateProvider = templateProvider;
@@ -28,9 +29,18 @@ public class DumpReader {
     }
 
     public void execute() {
+        int failed = 0;
         for (String message = dataProvider.nextMessage(); message != null; message = dataProvider.nextMessage()) {
 
-            List<Event> results = coreService.parse(message);
+            List<Event> results;
+            try {
+                results = coreService.parse(message);
+            } catch (Exception e) {
+                System.out.println("failed parsing message: " + message);
+                e.printStackTrace();
+                if (++failed < errorsThreshold) continue;
+                else break;
+            }
             Event event = null;
             if (results.isEmpty()) {
                 Optional<Template> templateOptional = templateProvider.newTemplate(message);
@@ -48,4 +58,8 @@ public class DumpReader {
         }
     }
 
+    public DumpReader maxErrors(int errorsThreshold) {
+        this.errorsThreshold = errorsThreshold;
+        return this;
+    }
 }
