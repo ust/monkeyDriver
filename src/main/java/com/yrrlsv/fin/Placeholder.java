@@ -16,12 +16,28 @@ public class Placeholder {
 
     Placeholder(@NotNull List<Field> fields) {
         if (fields.isEmpty())
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("Placeholder cannot contain empty field list");
         this.fields = fields;
     }
 
     public List<Field> fields() {
         return fields;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Placeholder that = (Placeholder) o;
+
+        return fields.equals(that.fields);
+
+    }
+
+    @Override
+    public int hashCode() {
+        return fields.hashCode();
     }
 
     @Override

@@ -1,20 +1,18 @@
 package com.yrrlsv.fin;
 
-import com.google.common.collect.ImmutableList;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class CoreService {
@@ -44,14 +42,14 @@ public class CoreService {
             Event.Builder builder = new Event.Builder();
             int i = 1;
             for (Placeholder placeholder : template.placeholders()) {
-                List<Event.Builder> cases = new CombinatorialTask(placeholder.fields(), matcher.group()).search();
+                List<Event.Builder> cases = CombinatorialTask.cases2(parsers, placeholder.fields(), matcher.group(i++));
                 if (cases.size() == 1) {
                     builder.merge(cases.get(0));
                 } else {
                     throw new NotImplementedException("ambiguous variants" + cases);
                 }
             }
-            return Optional.of(builder.setType(template.type()).build());
+            return Optional.of(builder.type(template.type()).build());
         } else return Optional.empty();
     }
 
@@ -63,25 +61,29 @@ public class CoreService {
         List<Field> selectedFields = new ArrayList<>(locators.size());
         int cursor = 0;
         for (FieldLocator locator : locators) {
-            String fieldData = text.substring(locator.start(), locator.end());
-            List<Parser.Result> results = parsers.get(locator.field()).parse(fieldData);
-            if (!results.isEmpty()) {
-                data.merge(results.get(0).data());
-            }
-
             String gap = text.substring(cursor, locator.start());
-            selectedFields.add(locator.field());
+            String fieldData = text.substring(locator.start(), locator.end());
+            List<Parser.Result> parsed = parsers.get(locator.field()).parse(fieldData);
+            if (!parsed.isEmpty()) data.merge(parsed.get(0).data()); // get(0) ?
 
-            if (selectedText.indexOf(gap) == -1 || cursor == 0) {
+            if (selectedFields.size() == 0 || selectedText.indexOf(gap) == -1) {
+                // escape special symbols
                 regex.append(gap).append(BROAD_PLACEHOLDER);
-                placeholders.add(new Placeholder(selectedFields));
-                selectedFields.clear();
-                selectedText.setLength(0);
+                if (!selectedFields.isEmpty()) {
+                    placeholders.add(new Placeholder(new ArrayList<>(selectedFields)));
+                    selectedFields.clear();
+                    selectedText.setLength(0);
+                }
             } else {
                 selectedText.append(gap).append(fieldData);
             }
-
+            selectedFields.add(locator.field());
             cursor = locator.end();
+        }
+        if (!selectedFields.isEmpty()) {
+            placeholders.add(new Placeholder(new ArrayList<>(selectedFields)));
+            selectedFields.clear();
+            selectedText.setLength(0);
         }
         regex.append(text.substring(cursor)); // last gap
 
@@ -111,79 +113,5 @@ public class CoreService {
     public boolean addTemplate(@NotNull Template template) {
         return templates.add(template);
     }
-
-
-    private class CombinatorialTask {
-        private final Comparator<Event.Builder> full;
-        private final Comparator<CombineStep> priority;
-        private final TreeSet<CombineStep> queue;
-
-        private CombinatorialTask(List<Field> fields, String data) {
-            full = (o1, o2) -> {
-                int count1 = 0;
-                int count2 = 0;
-                for (Field f : fields) {
-                    if (o1.isPresent(f)) count1++;
-                    if (o2.isPresent(f)) count2++;
-                }
-                return Integer.compare(count2, count1);
-            };
-            priority = (o1, o2) -> {
-                int fullness = full.compare(o1.data, o2.data);
-                if (fullness != 0)
-                    return fullness;
-                return Parser.priority.compare(o1.field, o2.field);
-            };
-            queue = new TreeSet<>(priority);
-
-            for (Field field : fields) {
-                queue.add(new CombineStep(fields, field, data, new Event.Builder()));
-            }
-        }
-
-        private List<Event.Builder> search() {
-            ImmutableList.Builder<Event.Builder> result = new ImmutableList.Builder<>();
-            TreeSet<Event.Builder> processed = new TreeSet<>(full);
-            while (!queue.isEmpty()) {
-                CombineStep step = queue.pollFirst();
-                processed.add(step.data);
-                queue.addAll(step.next());
-            }
-            return result.addAll(processed).build();
-        }
-    }
-
-    private class CombineStep {
-        private List<Field> fields;
-        private Field field;
-        private String rowData;
-        private Event.Builder data;
-
-        private CombineStep(List<Field> fields, Field field, String rowData, Event.Builder data) {
-            this.fields = fields;
-            this.field = field;
-            this.rowData = rowData;
-            this.data = data;
-        }
-
-        private List<CombineStep> next() {
-            ImmutableList.Builder<CombineStep> steps = new ImmutableList.Builder<>();
-            List<Parser.Result> cases = parsers.get(field).parse(rowData);
-            int myIndex = fields.indexOf(field);
-            int currentIndex = 0;
-            for (Parser.Result aCase : cases) {
-                Event.Builder merged = data.merge(aCase.data());
-                for (Field f : fields) {
-                    if (currentIndex < myIndex) {
-                        steps.add(new CombineStep(fields, f, aCase.before(), merged));
-                    } else if (currentIndex > myIndex) {
-                        steps.add(new CombineStep(fields, f, aCase.after(), merged));
-                    }
-                }
-            }
-            return steps.build();
-        }
-    }
-
 }
 

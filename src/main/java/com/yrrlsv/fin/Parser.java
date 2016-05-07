@@ -2,22 +2,20 @@ package com.yrrlsv.fin;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.joestelmach.natty.DateGroup;
 
 import java.math.BigDecimal;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.text.ParseException;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Currency;
-import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -34,7 +32,7 @@ public interface Parser {
 
     Comparator<Field> priority = new Comparator<Field>() {
 
-        private final List<Field> order = Arrays.asList(date, account, currency, amount, balance, shop, none);
+        private final List<Field> order = Arrays.asList(date, amount, balance, currency, account, shop, none);
 
         @Override
         public int compare(Field o1, Field o2) {
@@ -66,19 +64,29 @@ public interface Parser {
         public String after() {
             return after;
         }
+
+        @Override
+        public String toString() {
+            return "Result{" +
+                    "before='" + before + '\'' +
+                    ", data=" + data +
+                    ", after='" + after + '\'' +
+                    '}';
+        }
     }
 
     static Optional<Parser> create(Field field) {
         switch (field) {
             case date:
-                return Optional.of(new NattyParser());
+                return Optional.of(new DateParser(date -> new Event.Builder().date(date)));
             case amount:
                 return Optional.of(new MoneyParser(amount -> new Event.Builder().amount(amount)));
             case balance:
                 return Optional.of(new MoneyParser(amount -> new Event.Builder().balance(amount)));
             case account:
+                return Optional.of(new AccountParser(s -> new Event.Builder().payer(s)));
             case shop:
-                return Optional.of(new AccountParser());
+                return Optional.of(new AccountParser(s -> new Event.Builder().recipient(s)));
             case currency:
                 return Optional.of(new CurrencyParser());
             case source:
@@ -89,122 +97,123 @@ public interface Parser {
     }
 
     List<Result> parse(String data);
+
 }
 
 class DummyParser implements Parser {
     @Override
     public List<Result> parse(String data) {
-        return Collections.emptyList();
+        return Collections.singletonList(new Result("", new Event.Builder(), ""));
     }
 }
 
-
-abstract class RegexParser<T> implements Parser {
-    protected final Set<Pattern> patterns;
+class RegexParser<T> implements Parser {
     protected final Function<T, Event.Builder> applier;
+    protected final Map<Pattern, Function<String, T>> patterns;
 
-    protected RegexParser(Set<Pattern> patterns, Function<T, Event.Builder> applier) {
+    public RegexParser(Map<Pattern, Function<String, T>> patterns, Function<T, Event.Builder> builderFunction) {
         this.patterns = patterns;
-        this.applier = applier;
+        applier = builderFunction;
     }
 
     public List<Parser.Result> parse(String data) {
         ImmutableList.Builder<Parser.Result> results = new ImmutableList.Builder<>();
-        for (Pattern pattern : patterns) {
-            Matcher matcher = pattern.matcher(data);
+        for (Map.Entry<Pattern, Function<String, T>> entry : patterns.entrySet()) {
+            Matcher matcher = entry.getKey().matcher(data);
             while (matcher.find()) {
+                String group = matcher.group();
                 results.add(new Parser.Result(
                         data.substring(0, matcher.start()),
-                        applier.apply(onMatch(pattern, data)),
+                        applier.apply(entry.getValue().apply(group)),
                         data.substring(matcher.end())));
             }
         }
         return results.build();
     }
-
-    protected abstract T onMatch(Pattern pattern, String data);
 }
 
-class DateTimeParser extends RegexParser<LocalDateTime> {
-    private Map<Pattern, DateTimeFormatter> formatters;
+class DateParser extends RegexParser<LocalDateTime> {
 
-    DateTimeParser(Map<Pattern, DateTimeFormatter> formatters) {
-        super(formatters.keySet(), time -> new Event.Builder().date(time));
-        this.formatters = formatters;
-    }
+    public static final ImmutableMap<Pattern, Function<String, LocalDateTime>> formatters =
+            new ImmutableMap.Builder<Pattern, Function<String, LocalDateTime>>()
+                    .put(Pattern.compile("\\d\\d.\\d\\d\\.\\d\\d\\s\\d\\d\\:\\d\\d"),
+                            s -> LocalDateTime.parse(s, DateTimeFormatter.ofPattern("dd.MM.yy HH:mm")))
+                    .build();
 
-    @Override
-    protected LocalDateTime onMatch(Pattern pattern, String data) {
-        return LocalDateTime.parse(data, formatters.get(pattern));
+    public DateParser(Function<LocalDateTime, Event.Builder> builderFunction) {
+        super(formatters, builderFunction);
     }
 }
 
-class DateTimeCompositeParser implements Parser {
-    private static final Map<Pattern, DateTimeFormatter> dateFormatters = new ImmutableMap.Builder<Pattern, DateTimeFormatter>()
-            .put(null, null) // TODO
-            .build();
-    private static final Map<Pattern, DateTimeFormatter> timeFormatters = new ImmutableMap.Builder<Pattern, DateTimeFormatter>()
-            .put(null, null) // TODO
-            .build();
-    private final DateTimeParser dateParser;
-    private final DateTimeParser timeParser;
+class MoneyParser extends RegexParser<BigDecimal> implements Parser {
+    private static final Pattern dotsComma =
+            Pattern.compile("(?<![\\'\\,\\.\\d])[1-9]\\d{0,2}(?:\\.\\d{3})+(?:\\,\\d{2,})?(?![\\'\\,\\.\\d])");
+    private static final Pattern commasDots =
+            Pattern.compile("(?<![\\'\\,\\.\\d])[1-9]\\d{0,2}(?:\\,\\d{3})+(?:\\.\\d{2,})?(?![\\'\\,\\.\\d])");
+    private static final Pattern quotes =
+            Pattern.compile("(?<![\\'\\,\\.\\d])[1-9]\\d{0,2}(?:\\'\\d{3})+(?:[\\.\\,]\\d{2,})?(?![\\'\\,\\.\\d])");
+    private static final Pattern justFloating =
+            Pattern.compile("(?<![\\'\\,\\.\\d])(?:0|[1-9]\\d*)(?:[\\,\\.]\\d{2,})?(?![\\'\\,\\.\\d])");
 
-    DateTimeCompositeParser() {
-        timeParser = new DateTimeParser(dateFormatters);
-        dateParser = new DateTimeParser(timeFormatters);
+    public static final ImmutableMap<Pattern, Function<String, BigDecimal>> refiners =
+            new ImmutableMap.Builder<Pattern, Function<String, BigDecimal>>()
+                    .put(dotsComma, s -> format(s.replace(".", "").replace(',', '.')))
+                    .put(commasDots, s -> format(s.replace(",", "")))
+                    .put(quotes, s -> format(s.replace("\'", "").replace(',', '.')))
+                    .put(justFloating, s -> format(s.replace(',', '.')))
+                    .build();
+
+    private static final DecimalFormat format;
+
+    static {
+        DecimalFormatSymbols symbols = new DecimalFormatSymbols();
+        //symbols.setGroupingSeparator(',');
+        symbols.setDecimalSeparator('.');
+        // String pattern = "#,##0.0#";
+        format = new DecimalFormat("###.##", symbols);
+        format.setParseBigDecimal(true);
     }
 
-    @Override
-    public List<Result> parse(String data) {
-        List<Result> results = timeParser.parse(data);
-        return null;
-    }
-}
-
-class NattyParser implements Parser {
-    private static final com.joestelmach.natty.Parser parser = new com.joestelmach.natty.Parser();
-
-    @Override
-    public List<Result> parse(String data) {
-        ImmutableList.Builder<Result> results = new ImmutableList.Builder<>();
-        for (DateGroup group : parser.parse(data)) {
-            Date date = group.getDates().get(0); // mmmm get(0)???
-            results.add(new Result(data.substring(0, group.getAbsolutePosition()),
-                    new Event.Builder().date(LocalDateTime.ofInstant(date.toInstant(), ZoneId.systemDefault())),
-                    data.substring(group.getAbsolutePosition() + group.getText().length())));
+    private static BigDecimal format(String s) {
+        try {
+            return (BigDecimal) format.parse(s);
+        } catch (ParseException ignored) {
         }
-        return results.build();
+        return BigDecimal.ZERO;
     }
-}
-
-class MoneyParser extends RegexParser<BigDecimal> {
-
-    private static final String regex = "[0-9]+((\\.|,)[0-9][0-9])?";
-    private static final Pattern pattern = Pattern.compile(regex);
 
     MoneyParser(Function<BigDecimal, Event.Builder> builderFunction) {
-        super(Collections.singleton(pattern), builderFunction);
-    }
-
-    @Override
-    protected BigDecimal onMatch(Pattern pattern, String data) {
-        return BigDecimal.valueOf(Double.valueOf(data.replace(',', '.')));
+        super(refiners, builderFunction);
     }
 }
 
 class AccountParser implements Parser {
-    Set<String> accounts = new HashSet<>();
+    private Function<String, Event.Builder> applier;
+
+    AccountParser(Function<String, Event.Builder> applier) {
+        this.applier = applier;
+    }
 
     @Override
     public List<Result> parse(String data) {
-        return Collections.singletonList(new Result("", new Event.Builder().payer(data), ""));
+        return Collections.singletonList(new Result("", applier.apply(data), ""));
     }
 }
 
 class CurrencyParser implements Parser {
     @Override
     public List<Result> parse(String data) {
-        return Collections.singletonList(new Result("", new Event.Builder().setCurrency(Currency.getInstance(data)), ""));
+        ImmutableList.Builder<Result> results = new ImmutableList.Builder<>();
+        String upperCaseData = data.toUpperCase();
+        for (Currency currency : Currency.getAvailableCurrencies()) {
+            int indexOf = upperCaseData.indexOf(currency.getCurrencyCode());
+            if (indexOf != -1) {
+                results.add(new Result(data.substring(0, indexOf),
+                        new Event.Builder().currency(currency),
+                        data.substring(indexOf + currency.getCurrencyCode().length())));
+            }
+        }
+        return results.build();
     }
 }
 

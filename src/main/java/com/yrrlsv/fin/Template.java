@@ -40,13 +40,17 @@ public class Template {
 
         Template template = (Template) o;
 
-        return type == template.type && pattern.equals(template.pattern);
+        if (type != template.type) return false;
+        if (!pattern.equals(template.pattern)) return false;
+        return placeholders.equals(template.placeholders);
+
     }
 
     @Override
     public int hashCode() {
         int result = type.hashCode();
         result = 31 * result + pattern.hashCode();
+        result = 31 * result + placeholders.hashCode();
         return result;
     }
 

@@ -10,6 +10,7 @@ import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Currency;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -152,9 +153,6 @@ public class DumpReaderTest {
         @Override
         public Optional<Template> newTemplate(String message) {
             return Optional.empty();
-//            System.out.println("unrecognized message");
-//            System.out.println(message);
-//            throw new IllegalStateException("method shouldn't be invoked");
         }
 
         @Override
@@ -219,12 +217,12 @@ public class DumpReaderTest {
 
         // -------------------------------------------------------------------------------------------------------------
         List<Event> haveCurrency = bus.events().stream()
-                .filter(event1 -> event1.data().containsKey(currency))
+                .filter(event1 -> event1.currency() != null)
                 .collect(Collectors.toList());
-//        System.out.println("\nCURRENCY recognized: " + haveCurrency.size());
-        Map<String, List<Event>> perCurrency = haveCurrency.stream()
-                .collect(Collectors.groupingBy(event1 -> event1.data().get(currency)));
-//        System.out.println("\nCURRENCY values: " + perCurrency.keySet());
+        System.out.println("\nCURRENCY recognized: " + haveCurrency.size());
+        Map<Currency, List<Event>> perCurrency = haveCurrency.stream()
+                .collect(Collectors.groupingBy(Event::currency));
+        System.out.println("\nCURRENCY values: " + perCurrency.keySet());
 
 
         // -------------------------------------------------------------------------------------------------------------
@@ -243,7 +241,7 @@ public class DumpReaderTest {
 
     private void printAccountsStat(List<Event> events) {
         if (events != null)
-            events.stream().collect(Collectors.groupingBy(event -> event.data().get(account), Collectors.counting()))
+            events.stream().collect(Collectors.groupingBy(Event::payer, Collectors.counting()))
                     .forEach((eventType, count) -> System.out.println(String.format("\t%s, %d", eventType, count)));
     }
 }
