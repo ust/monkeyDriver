@@ -10,7 +10,6 @@ import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Currency;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -37,86 +36,108 @@ public class DumpReaderTest {
     private static final Template otp_charge2 = new Template(EventType.charge,
             "OTPdirekt:(.+): Splata za tovar/poslugu. " +
                     "Kartka (.+). " +
-                    "Suma: (.+) . " +
+                    "Suma: (.+). " +
                     "Misce: (.+). " +
-                    "Zalyshok: (.+)UAH.",
+                    "Zalyshok: (.+).",
             Arrays.<Placeholder>asList(Placeholder.of(date), Placeholder.of(account),
-                    Placeholder.of(amount, currency), Placeholder.of(shop), Placeholder.of(balance)
+                    Placeholder.of(amount, currency), Placeholder.of(shop), Placeholder.of(balance, none)
             ));
-    private static final Template otp_charge_uah = new Template(EventType.charge,
-            "(.+)\nSplata za tovar/poslugu.\n" +
+    private static final Template otp_charge_currency = new Template(EventType.charge,
+            "OTPdirekt:(.+): Splata za tovar/poslugu. " +
                     "Kartka (.+). " +
-                    "Suma:\n(.+) (.+). " +
-                    "Misce:\n(.+).\n" +
-                    "Zalyshok: (.+) UAH", Arrays.<Placeholder>asList(Placeholder.of(date), Placeholder.of(account),
-            Placeholder.of(amount, currency), Placeholder.of(shop), Placeholder.of(balance)
-    ));
+                    "Suma: (.+). \\((.+)\\)" +
+                    "Misce: (.+). " +
+                    "Zalyshok: (.+).",
+            Arrays.<Placeholder>asList(Placeholder.of(date), Placeholder.of(account),
+                    Placeholder.of(amount, currency), Placeholder.of(none), Placeholder.of(shop), Placeholder.of(balance, none)
+            ));
     private static final Template otp_withdrawal = new Template(EventType.charge,
             "(.+)\nOtrymannya gotivky v ATM\n" +
                     "Kartka (.+). Suma:\n" +
-                    "(.+) (.+). Misce:\n" +
-                    "OTP BANK ATM UAH. \n" +
-                    "Zalyshok: (.+) UAH", Arrays.<Placeholder>asList(Placeholder.of(date), Placeholder.of(account),
-            Placeholder.of(amount, currency), Placeholder.of(shop), Placeholder.of(balance)
+                    "(.+). Misce:\n" +
+                    "(.+). \n" +
+                    "Zalyshok: (.+)", Arrays.<Placeholder>asList(Placeholder.of(date), Placeholder.of(account),
+            Placeholder.of(amount, currency), Placeholder.of(shop), Placeholder.of(balance, none)
     ));
-    private static final Template otp_withdrawal2 = Template.flatTemplate(EventType.charge,
+    private static final Template otp_withdrawal2 = new Template(EventType.charge,
             "OTPdirekt:(.+): Otrymannya gotivky. " +
                     "Kartka (.+). " +
-                    "Suma: (.+)UAH . " +
+                    "Suma: (.+) . " +
                     "Misce: (.+). " +
-                    "Zalyshok: (.+)UAH.", Arrays.asList(date, account, amount, shop, balance));
-    private static final Template otp_cashier_withdrawal = Template.flatTemplate(EventType.charge,
+                    "Zalyshok: (.+).", Arrays.<Placeholder>asList(Placeholder.of(date), Placeholder.of(account),
+            Placeholder.of(amount, currency), Placeholder.of(shop), Placeholder.of(balance, none)
+    ));
+    private static final Template otp_cashier_withdrawal = new Template(EventType.charge,
             "OTPdirekt:(.+): " +
                     "Spysannya z rahunku: (.+). " +
-                    "Suma: (.+) UAH " +
-                    "Zalyshok: (.+) UAH " +
-                    "Otrymuvach: (.+)", Arrays.asList(date, account, amount, balance, shop));
-    private static final Template otp_cancel_uah = Template.flatTemplate(EventType.replenishment,
-            "OTPdirekt:VIDMINA: (.+): " +
-                    "Povernennya tovaru. Kartka (.+). " +
-                    "Suma: (.+)UAH \\((.+)UAH\\). " +
-                    "Misce: (.+). " +
-                    "Zalyshok: (.+)UAH.", Arrays.asList(date, account, amount, none, shop, balance));
-    private static final Template otp_cancel_uah2 = Template.flatTemplate(EventType.replenishment,
+                    "Suma: (.+) " +
+                    "Zalyshok: (.+) " +
+                    "Otrymuvach: (.+)", Arrays.<Placeholder>asList(Placeholder.of(date), Placeholder.of(account),
+            Placeholder.of(amount, currency), Placeholder.of(balance, none), Placeholder.of(shop)
+    ));
+    private static final Template otp_cancel = new Template(EventType.replenishment,
             "OTPdirekt:VIDMINA: (.+): Splata za tovar/poslugu. " +
                     "Kartka (.+). " +
-                    "Suma: (.+)UAH \\((.+)UAH\\). " +
+                    "Suma: (.+) \\((.+)\\). " +
                     "Misce: (.+). " +
-                    "Zalyshok: (.+)UAH.", Arrays.asList(date, account, amount, none, shop, balance));
-    private static final Template otp_cancel2_uah = Template.flatTemplate(EventType.replenishment,
+                    "Zalyshok: (.+).", Arrays.<Placeholder>asList(Placeholder.of(date), Placeholder.of(account),
+            Placeholder.of(amount, currency), Placeholder.of(none), Placeholder.of(shop), Placeholder.of(balance, none)
+    ));
+    private static final Template otp_cancel2 = new Template(EventType.replenishment,
+            "OTPdirekt:VIDMINA: (.+): " +
+                    "Povernennya tovaru. Kartka (.+). " +
+                    "Suma: (.+) \\((.+)\\). " +
+                    "Misce: (.+). " +
+                    "Zalyshok: (.+).", Arrays.<Placeholder>asList(Placeholder.of(date), Placeholder.of(account),
+            Placeholder.of(amount, currency), Placeholder.of(none), Placeholder.of(shop), Placeholder.of(balance, none)
+    ));
+    private static final Template otp_cancel_wo_braces = new Template(EventType.replenishment,
             "OTPdirekt:(.+): " +
                     "Povernennya tovaru. " +
                     "Kartka (.+). " +
-                    "Suma: (.+)UAH . " +
+                    "Suma: (.+) . " +
                     "Misce: (.+). " +
-                    "Zalyshok: (.+)UAH.", Arrays.asList(date, account, amount, shop, balance));
-    private static final Template otp_replenish_uah = Template.flatTemplate(EventType.replenishment,
+                    "Zalyshok: (.+).", Arrays.<Placeholder>asList(Placeholder.of(date), Placeholder.of(account),
+            Placeholder.of(amount, currency), Placeholder.of(shop), Placeholder.of(balance, none)
+    ));
+    private static final Template otp_replenish = new Template(EventType.replenishment,
             "OTPdirekt:(.+): " +
                     "Popovnennya rahunku: (.+). " +
-                    "Suma: (.+) UAH " +
-                    "Zalyshok: (.+) UAH " +
-                    "Platnyk: (.+)", Arrays.asList(date, account, amount, balance, shop));
-    private static final Template otp_replenish_usd = Template.flatTemplate(EventType.replenishment,
-            "OTPdirekt:(.+): " +
-                    "Popovnennya rahunku: (.+). " +
-                    "Suma: (.+) USD " +
-                    "Zalyshok: (.+) USD " +
-                    "Platnyk: (.+)", Arrays.asList(date, account, amount, balance, shop));
-    private static final Template otp_deposit_uah = Template.flatTemplate(EventType.deposit,
+                    "Suma: (.+) " +
+                    "Zalyshok: (.+) " +
+                    "Platnyk: (.+)",
+            Arrays.asList(Placeholder.of(date), Placeholder.of(account), Placeholder.of(amount, currency, none),
+                    Placeholder.of(balance), Placeholder.of(shop)));
+    //    private static final Template otp_replenish_wo_balance = new Template(EventType.replenishment,
+    //            "OTPdirekt:(.+): " +
+    //                    "Popovnennya rahunku: (.+). " +
+    //                    "Suma: (.+) " +
+    //                    "Zalyshok: --- UAH " +
+    //                    "Platnyk: (.+)",
+    //            Arrays.asList(Placeholder.of(date), Placeholder.of(account), Placeholder.of(amount, currency),
+    //                    Placeholder.of(shop)));
+    private static final Template otp_deposit = new Template(EventType.deposit,
             "OTPdirekt:(.+): " +
                     "Popovnennya depozytu z rahunku (.+). " +
-                    "Suma: (.+) UAH " +
-                    "Balans rahunku: (.+) UAH", Arrays.asList(date, account, amount, balance));
-    private static final Template otp_deposit_usd = Template.flatTemplate(EventType.deposit,
-            "OTPdirekt:(.+): " +
-                    "Popovnennya depozytu z rahunku (.+). " +
-                    "Suma: (.+) USD " +
-                    "Balans rahunku: (.+) USD", Arrays.asList(date, account, amount, balance));
-    private static final Template otp_deposit_withdraw_uah = Template.flatTemplate(EventType.depositWithdraw,
+                    "Suma: (.+) " +
+                    "Balans rahunku: (.+)", Arrays.<Placeholder>asList(Placeholder.of(date), Placeholder.of(account),
+            Placeholder.of(amount, currency), Placeholder.of(balance, none)
+    ));
+    private static final Template otp_deposit_withdraw = new Template(EventType.depositWithdraw,
             "OTPdirekt:(.+): " +
                     "Spysannya z depozytu na rahunok: (.+). " +
-                    "Suma: (.+) UAH " +
-                    "Balans rahunku: (.+) UAH", Arrays.asList(date, account, amount, balance));
+                    "Suma: (.+) " +
+                    "Balans rahunku: (.+)", Arrays.<Placeholder>asList(Placeholder.of(date), Placeholder.of(account),
+            Placeholder.of(amount, currency), Placeholder.of(balance, none)
+    ));
+    private static final Template otp_credit_reminder = new Template(EventType.promo,
+            "Uvaga! Za period (.+) " +
+                    "za rakhunkom (.+) " +
+                    "zaborgovanist skladae (.+). " +
+                    "Obovyazkovyi platizh (.+) " +
+                    "do (.+).", Arrays.<Placeholder>asList(Placeholder.of(none), Placeholder.of(none),
+            Placeholder.of(none), Placeholder.of(none), Placeholder.of(none)
+    ));
     private static final Template otp_promo_dep = Template.flatTemplate(EventType.promo,
             "Vidkriite depozyt do 20% richnykh v OTP Bank! " +
                     "Shchiro bazhaiemo dostatku ta protsvitannia! " +
@@ -136,9 +157,9 @@ public class DumpReaderTest {
                     "sms zi slovom Promo na nomer 6101. Detali:0800505125. " +
                     "Vartist vidpravku sms - zgidno z tarifami vashogo operatora", Collections.emptyList());
     private static final Template otp_lounge = Template.flatTemplate(EventType.promo,
-            "Uvaha!Dodatkovi perevahy z kartkoyu Premium World vid OTP Bank." +
-                    "Vidteper dostup do Launge Zony aeroportu Boryspil dlya Vas bezkoshtovnyy!" +
-                    "Detali:0800 505 125 ", Collections.emptyList());
+            "Uvaha\\!Dodatkovi perevahy z kartkoyu Premium World vid OTP Bank." +
+                    "Vidteper dostup do Launge Zony aeroportu Boryspil dlya Vas bezkoshtovnyy\\!" +
+                    "Detali\\:0800 505 125 ", Collections.emptyList());
     private static final Template otp_promo_hot = Template.flatTemplate(EventType.promo,
             "Гаряча пропозиція від OTP! " +
                     "ОТП Інвест\\+: більше 35% за рік. " +
@@ -165,35 +186,16 @@ public class DumpReaderTest {
     private EventBus bus = new EventBus();
 
     @Test
-    public void some() {
-        new DumpReader(FAKE_TEMPLATE_PROVIDER,
-                new AndroidBackupDataProvider(getClass().getResource("otp_charge_1.xml").getPath()),
-                bus, Arrays.asList(otp_charge, otp_charge_uah)).execute();
-
-        assertThat(bus.events().size(), is(1));
-    }
-
-    @Test
-    public void chooseTemplate() {
-        new DumpReader(FAKE_TEMPLATE_PROVIDER,
-                new AndroidBackupDataProvider(getClass().getResource("otp_charge_2.xml").getPath()),
-                bus, Arrays.asList(otp_charge, otp_charge_uah, otp_withdrawal)).execute();
-
-        assertThat(bus.events().size(), is(2));
-    }
-
-    @Test
     public void otpOnly_20160111231728() {
         new DumpReader(FAKE_TEMPLATE_PROVIDER,
                 new AndroidBackupDataProvider(getClass().getResource("otpOnly-20160111231728.xml").getPath()),
                 bus,
                 Arrays.asList(
-                        otp_charge, otp_charge2, otp_charge_uah, otp_withdrawal, otp_withdrawal2, otp_cashier_withdrawal,
-                        otp_cancel_uah, otp_cancel_uah2, otp_cancel2_uah, otp_replenish_uah, otp_replenish_usd,
-                        otp_deposit_usd, otp_deposit_uah,
-                        otp_deposit_withdraw_uah,
+                        otp_charge, otp_charge2/*, otp_charge_currency*/, otp_withdrawal, otp_withdrawal2, otp_cashier_withdrawal,
+                        otp_cancel2, otp_cancel, otp_cancel_wo_braces, //otp_replenish_wo_balance,
+                        otp_replenish, otp_deposit, otp_deposit_withdraw, otp_credit_reminder,
                         otp_promo_dep, otp_promo_cap, otp_promo_mc, otp_promo_tour, otp_lounge, otp_promo_hot, otp_info
-                )).maxErrors(3).execute();
+                )).maxErrors(5).execute();
 
         Map<EventType, List<Event>> types =
                 bus.events().stream().collect(Collectors.groupingBy(Event::type));
@@ -215,25 +217,15 @@ public class DumpReaderTest {
         System.out.println("deposits withdrawals:");
         printAccountsStat(withdrawals);
 
-        // -------------------------------------------------------------------------------------------------------------
-        List<Event> haveCurrency = bus.events().stream()
-                .filter(event1 -> event1.currency() != null)
-                .collect(Collectors.toList());
-        System.out.println("\nCURRENCY recognized: " + haveCurrency.size());
-        Map<Currency, List<Event>> perCurrency = haveCurrency.stream()
-                .collect(Collectors.groupingBy(Event::currency));
-        System.out.println("\nCURRENCY values: " + perCurrency.keySet());
-
+        //System.out.println("currencies: " + charged.stream().map(Event::currency).collect(Collectors.toSet()));
 
         // -------------------------------------------------------------------------------------------------------------
-        assertThat(charged.size(), is(1092));
-        assertThat(replenished.size(), is(115));
+        assertThat(charged.size(), is(1108));
+        assertThat(replenished.size(), is(110));
         assertThat(deposits.size(), is(59));
-        assertThat(withdrawals.size(), is(50));
-        assertThat(promo.size(), is(6));
-        assertThat(failed.size(), is(274));
-
-        assertThat(haveCurrency.size(), is(213));
+        assertThat(withdrawals.size(), is(62));
+        assertThat(promo.size(), is(18));
+        assertThat(failed.size(), is(239));
 
         System.out.println(failed.isEmpty() ? "\nGREAT JOB!" : "\nlet's check that 5/" + failed.size() + ":");
         failed.stream().limit(5).forEach(event -> System.out.println("\t" + event.data()));

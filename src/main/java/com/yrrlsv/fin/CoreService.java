@@ -6,13 +6,13 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class CoreService {
@@ -45,9 +45,12 @@ public class CoreService {
                 List<Event.Builder> cases = CombinatorialTask.cases2(parsers, placeholder.fields(), matcher.group(i++));
                 if (cases.size() == 1) {
                     builder.merge(cases.get(0));
+                } else if (!cases.isEmpty()) {
+                    throw new NotImplementedException("ambiguous variants while parsing :" + placeholder + " cases: " + cases);
                 } else {
-                    throw new NotImplementedException("ambiguous variants" + cases);
+                    //throw new RuntimeException(placeholder.toString() + " cases: " + cases);
                 }
+                // else warn
             }
             return Optional.of(builder.type(template.type()).build());
         } else return Optional.empty();

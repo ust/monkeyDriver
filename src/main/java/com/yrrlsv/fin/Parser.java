@@ -138,6 +138,8 @@ class DateParser extends RegexParser<LocalDateTime> {
             new ImmutableMap.Builder<Pattern, Function<String, LocalDateTime>>()
                     .put(Pattern.compile("\\d\\d.\\d\\d\\.\\d\\d\\s\\d\\d\\:\\d\\d"),
                             s -> LocalDateTime.parse(s, DateTimeFormatter.ofPattern("dd.MM.yy HH:mm")))
+                    .put(Pattern.compile("\\d\\d.\\d\\d\\.\\d\\d\\d\\d\\s\\d\\d\\:\\d\\d"),
+                            s -> LocalDateTime.parse(s, DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")))
                     .build();
 
     public DateParser(Function<LocalDateTime, Event.Builder> builderFunction) {

@@ -8,7 +8,11 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Currency;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +23,7 @@ import static com.yrrlsv.fin.Field.amount;
 import static com.yrrlsv.fin.Field.balance;
 import static com.yrrlsv.fin.Field.currency;
 import static com.yrrlsv.fin.Field.date;
+import static com.yrrlsv.fin.Field.none;
 import static com.yrrlsv.fin.Field.shop;
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertThat;
@@ -151,4 +156,71 @@ public class CoreServiceTest {
         assertThat(template.placeholders(),
                 is(Arrays.asList(Placeholder.of(Field.account), Placeholder.of(Field.amount, Field.currency))));
     }
+
+    @Test
+    public void recognizeFcknMessage() {
+        /*
+        * TEST for regex101.com
+        *
+        * UAH 0,33UAH 2,90UAH 1000,10UAH 20.000,10UAH 2.000.500,00000UAH
+            USD 0.25USD 2USD 400USD 12,122USD 34,435,500.09USD
+            GBP 1.33GBP 2GBP 20GBP 2010GBP 20'000GBP 1.01GBP 2'000'000.00GBP
+            GBP 2GBP 20GBP 2010GBP 2'000GBP 1,01GBP 2'000'000,00GBP
+
+            comas 10,560UAH
+            dot 1.00USD 0.11USD 0,00012USD 10.345USD
+            103,40UAH
+            ----------------CONFUSING:
+
+            wrong formats:   10'99ERR 15,2ERR 15,ERR 4,555'000.444.00ERR
+                        100.100.330'999,00
+            zeros:        00ERR 001.10ERR  000,90ERR 00,31ERR 00.000.00,00ERR
+        *
+        * */
+
+        String message = "OTPdirekt:VIDMINA: 04.12.14 23:04: " +
+                "Povernennya tovaru. Kartka *8310. " +
+                "Suma: 2.500,00UAH (2.500,00UAH). " +
+                "Misce: DELTA PAY2YOU 2 KIEV. " +
+                "Zalyshok: 103,40UAH.";
+        String regex = "OTPdirekt:VIDMINA: (.+): " +
+                "Povernennya tovaru. Kartka (.+). " +
+                "Suma: (.+) \\((.+)\\). " +
+                "Misce: (.+). " +
+                "Zalyshok: (.+).";
+        List<Placeholder> placeholders = Arrays.<Placeholder>asList(
+                Placeholder.of(date), Placeholder.of(account), Placeholder.of(amount, currency),
+                Placeholder.of(none), Placeholder.of(shop), Placeholder.of(balance, none)
+        );
+        Template template = new Template(EventType.replenishment, regex, placeholders);
+
+        CoreService service = new CoreService(Collections.singleton(template));
+        List<Event> events = service.parse(message);
+        Event expected = new Event.Builder().type(EventType.replenishment)
+                .date(LocalDateTime.parse("2014-12-04T23:04"))
+                .payer("*8310").amount(new BigDecimal(2500)).currency(Currency.getInstance("UAH"))
+                .recipient("DELTA PAY2YOU 2 KIEV").balance(new BigDecimal("103.40")).build();
+
+        assertThat(events.get(0), is(expected));
+    }
+
+    @Test
+    public void smthWentWrong() {
+        String text = "OTPdirekt:29.09.2014 16:04: " +
+                "Popovnennya rahunku: 26208455083205. " +
+                "Suma: 9500,00 UAH Zalyshok: 9500,00 UAH " +
+                "Platnyk: Patenko Yaroslav Sviatoslavovych";
+        String tmplt = "OTPdirekt:(.+): Popovnennya rahunku: (.+). Suma: (.+) Zalyshok: (.+) UAH Platnyk: (.+)";
+
+        Template template = Template.newTemplate(EventType.replenishment, tmplt,
+                Arrays.asList(Placeholder.of(date), Placeholder.of(account), Placeholder.of(amount, currency),
+                        Placeholder.of(balance), Placeholder.of(shop)));
+        List<Event> results = new CoreService(Collections.singleton(template)).parse(text);
+        assertThat(results.size(), is(1));
+        assertThat(results.get(0), is(new Event.Builder().type(EventType.replenishment)
+                .date(LocalDateTime.parse("2014-09-29T16:04")).currency(Currency.getInstance("UAH"))
+                .payer("26208455083205").amount(new BigDecimal("9500")).balance(new BigDecimal("9500"))
+                .recipient("Patenko Yaroslav Sviatoslavovych").build()));
+    }
+
 }

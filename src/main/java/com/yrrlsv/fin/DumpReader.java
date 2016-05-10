@@ -2,6 +2,7 @@ package com.yrrlsv.fin;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,7 +29,7 @@ public class DumpReader {
         this.templateProvider = templateProvider;
         this.dataProvider = dataProvider;
         this.eventBus = eventBus;
-        this.coreService = new CoreService(new HashSet<>(templates));
+        this.coreService = new CoreService(new LinkedHashSet<>(templates));
     }
 
     public void execute() {

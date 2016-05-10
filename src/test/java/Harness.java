@@ -1,11 +1,7 @@
-import com.joestelmach.natty.DateGroup;
-import com.joestelmach.natty.ParseLocation;
-import com.joestelmach.natty.Parser;
+import com.google.common.collect.Sets;
 import com.yrrlsv.fin.CoreService;
 import com.yrrlsv.fin.Event;
 import com.yrrlsv.fin.EventType;
-import com.yrrlsv.fin.Field;
-import com.yrrlsv.fin.FieldLocator;
 import com.yrrlsv.fin.Message;
 import com.yrrlsv.fin.Messages;
 import com.yrrlsv.fin.Placeholder;
@@ -21,10 +17,7 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Currency;
-import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -112,59 +105,6 @@ public class Harness {
     }
 
     @Test
-    public void placeholdersColision() {
-        String sms = "08/01 18:34\nSplata za tovar poslugu.\n" + // 36
-                "Kartka *5768. Suma\n196.21 UAH. " + // 67
-                "Misce:\nSHOP KUMUSHKA CHEKISTI.\n" + // 98
-                "Zalyshok: 2833.51";
-
-        String template = "(.+)\n" +
-                "Splata za tovar poslugu.\n" +
-                "Kartka (.+). Suma\n" +
-                "(.+) UAH. Misce:\n(.+).\n" +
-                "Zalyshok: (.+)";
-        String template2 = "(.+)\n" +
-                "Splata za tovar poslugu.\n" +
-                "Kartka (.+). Suma\n" +
-                "(.+) (.+). Misce:\n(.+).\n" +
-                "Zalyshok: (.+)";
-        String template3 = "(.+)\n" +
-                "Splata za tovar poslugu.\n" +
-                "Kartka (.+). Suma\n" +
-                "(.+)(.+). Misce:\n(.+).\n" +
-                "Zalyshok: (.+)";
-
-//        printPlaceholders(template, sms);
-//        printPlaceholders(template2, sms);
-        printPlaceholders(template3, sms);
-    }
-
-    @Test
-    public void mergedPlaceholders() {
-        int account = Field.account.ordinal();
-        int amount = Field.amount.ordinal();
-        int currency = Field.currency.ordinal();
-        CoreService core = new CoreService(new HashSet<>());
-
-        String text = "----------AAAAA-----1005.00UAH-----NNNNN"; // 10 + 5 + 5 + 5+5
-        String expected = "----------(.+)-----(.+)-----NNNNN";
-        Template template = core.newTemplate(text, EventType.failed,
-                FieldLocator.listOf(new int[][]{{account, 10, 15}, {amount, 20, 27}, {currency, 27, 30}}));
-        assertThat(template.pattern().pattern(), is(expected));
-        assertThat(template.placeholders(),
-                is(Arrays.asList(Placeholder.of(Field.account), Placeholder.of(Field.amount, Field.currency))));
-
-        core.addTemplate(template);
-        List<Event> actual = core.parse(text);
-        Event expectedEvent = new Event.Builder().type(EventType.failed)
-                .payer("AAAAA").amount(new BigDecimal(1005.00))
-                .currency(Currency.getInstance("UAH"))
-                .build();
-        assertThat(actual.get(0), is(expectedEvent));
-    }
-
-
-    @Test
     public void recognizeFcknMessage() {
         /*
         * TEST for regex101.com
@@ -204,48 +144,89 @@ public class Harness {
         CoreService service = new CoreService(Collections.singleton(template));
         List<Event> events = service.parse(message);
         Event expected = new Event.Builder().type(EventType.replenishment)
-                .date(LocalDateTime.parse("2016-05-06T04:12:14"))
+                .date(LocalDateTime.parse("2014-12-04T23:04"))
                 .payer("*8310").amount(new BigDecimal(2500)).currency(Currency.getInstance("UAH"))
                 .recipient("DELTA PAY2YOU 2 KIEV").balance(new BigDecimal("103.40")).build();
 
-        System.out.println(events.get(0).equals(expected));
         assertThat(events.get(0), is(expected));
     }
 
     @Test
-    public void hollyDateParser() {
-        //analyzeHollyParser("\n\tthe day before next thursday");
-        analyzeHollyParser("22.12.14 13:46");
-//        analyzeHollyParser("OTPdirekt:22.12.14 13:46: " +
-//                "Splata za tovar/poslugu. " +
-//                "Kartka *8310. " +
-//                "Suma: -138,00UAH . " +
-//                "Misce: PIZZERIA MARIOS KYIV. " +
-//                "Zalyshok: 7.732,95UAH.");
+    public void smthWentWrong() {
+        String text = "OTPdirekt:29.09.2014 16:04: " +
+                "Popovnennya rahunku: 26208455083205. " +
+                "Suma: 9500,00 UAH Zalyshok: 9500,00 UAH " +
+                "Platnyk: Patenko Yaroslav Sviatoslavovych";
+        String tmplt = "OTPdirekt:(.+): Popovnennya rahunku: (.+). Suma: (.+) Zalyshok: (.+) UAH Platnyk: (.+)";
+
+        Template template = Template.newTemplate(EventType.replenishment, tmplt,
+                Arrays.asList(Placeholder.of(date), Placeholder.of(account), Placeholder.of(amount, currency),
+                        Placeholder.of(balance), Placeholder.of(shop)));
+        List<Event> results = new CoreService(Collections.singleton(template)).parse(text);
+        assertThat(results.size(), is(1));
+        assertThat(results.get(0), is(new Event.Builder().type(EventType.replenishment)
+                .date(LocalDateTime.parse("2014-09-29T16:04")).currency(Currency.getInstance("UAH"))
+                .payer("26208455083205").amount(new BigDecimal("9500")).balance(new BigDecimal("9500"))
+                .recipient("Patenko Yaroslav Sviatoslavovych").build()));
     }
 
-    private void analyzeHollyParser(String value) {
-        Parser parser = new Parser();
-        List<DateGroup> groups = parser.parse(value);
-        System.out.println("---groups:" + groups);
-        for (DateGroup group : groups) {
-            System.out.println("---group:" + group);
-            List dates = group.getDates();
-            System.out.println("dates:" + dates);
-            int line = group.getLine();
-            int column = group.getPosition();
-            System.out.println("line:" + line + "   column: " + column + "    absolute: " + group.getAbsolutePosition());
-            System.out.println(group.getFullText());
-            String matchingValue = group.getText();
-            System.out.println("matchingValue:" + matchingValue);
+    @Test
+    public void extended2ndTemplate() {
+        String ok = "OTPdirekt:22.05.2015 15:19: Popovnennya rahunku: 26253455156239. " +
+                "Suma: 2000,00 UAH Zalyshok: -6637,41 UAH Platnyk: Yaroslav Patenko";
+        String msg = "OTPdirekt:25.05.2015 16:42: Popovnennya rahunku: 26208455083205. " +
+                "Suma: 19,18 UAH Zalyshok: --- UAH Platnyk: VS PIF \"Arhentum\" TOV \"Drahon Eset Men";
 
-            String syntaxTree = group.getSyntaxTree().toStringTree();
-            System.out.println("syntaxTree:" + syntaxTree);
-            Map<String, List<ParseLocation>> parseMap = group.getParseLocations();
-            System.out.println("parseMap:" + parseMap);
-            boolean isRecurreing = group.isRecurring();
-            Date recursUntil = group.getRecursUntil();
-            System.out.println("recursUntil:" + recursUntil);
-        }
+        Template otp_replenish = new Template(EventType.replenishment,
+                "OTPdirekt:(.+): " +
+                        "Popovnennya rahunku: (.+). " +
+                        "Suma: (.+) " +
+                        "Zalyshok: (.+) " +
+                        "Platnyk: (.+)",
+                Arrays.asList(Placeholder.of(date), Placeholder.of(account), Placeholder.of(amount, currency),
+                        Placeholder.of(balance, none), Placeholder.of(shop)));
+        Template otp_replenish_wo_balance = new Template(EventType.replenishment,
+                "OTPdirekt:(.+): " +
+                        "Popovnennya rahunku: (.+). " +
+                        "Suma: (.+) " +
+                        "Zalyshok: --- UAH " +
+                        "Platnyk: (.+)",
+                Arrays.asList(Placeholder.of(date), Placeholder.of(account), Placeholder.of(amount, currency),
+                        Placeholder.of(shop)));
+        CoreService service = new CoreService(Sets.newHashSet(otp_replenish, otp_replenish_wo_balance));
+        List<Event> events = service.parse(msg);
+        assertThat(events.size(), is(1));
+        System.out.println(events.get(0));
+    }
+
+    @Test
+    public void wtf() {
+        String msg = "OTPdirekt:VIDMINA: 10.12.14 22:24: Splata za tovar/poslugu. " +
+                "Kartka *8310. " +
+                "Suma: -226,00UAH (-226,00UAH). " +
+                "Misce: CAFE PODSHOFFE KYIV. " +
+                "Zalyshok: 5.604,40UAH.";
+
+        Template otp_charge2 = new Template(EventType.charge,
+                "OTPdirekt:(.+): Splata za tovar/poslugu. " +
+                        "Kartka (.+). " +
+                        "Suma: (.+). \\((.+)\\)" +
+                        "Misce: (.+). " +
+                        "Zalyshok: (.+).",
+                Arrays.<Placeholder>asList(Placeholder.of(date), Placeholder.of(account),
+                        Placeholder.of(amount, currency), Placeholder.of(none), Placeholder.of(shop), Placeholder.of(balance, none)
+                ));
+        Template otp_cancel = new Template(EventType.replenishment,
+                "OTPdirekt:VIDMINA: (.+): Splata za tovar/poslugu. " +
+                        "Kartka (.+). " +
+                        "Suma: (.+) \\((.+)\\). " +
+                        "Misce: (.+). " +
+                        "Zalyshok: (.+).", Arrays.<Placeholder>asList(Placeholder.of(date), Placeholder.of(account),
+                Placeholder.of(amount, currency), Placeholder.of(none), Placeholder.of(shop), Placeholder.of(balance, none)
+        ));
+        CoreService service = new CoreService(Sets.newHashSet(otp_cancel, otp_charge2));
+        List<Event> events = service.parse(msg);
+        assertThat(events.size(), is(1));
+        System.out.println(events.get(0));
     }
 }
