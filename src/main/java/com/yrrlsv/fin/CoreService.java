@@ -5,15 +5,14 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumMap;
-import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
-import java.util.stream.Collectors;
 
 public class CoreService {
 
@@ -23,17 +22,25 @@ public class CoreService {
     private Map<Field, Parser> parsers;
 
     public CoreService(Set<Template> templates) {
-        this.templates = templates;
+        this.templates = validateTemplates(templates);
         parsers = new EnumMap<>(Field.class);
         for (Field f : Field.fields) {
             parsers.put(f, Parser.create(f).get());
         }
     }
 
+    protected Set<Template> validateTemplates(Set<Template> templates) {
+        return templates;
+    }
+
     public List<Event> parse(@NotNull String text) {
         Objects.requireNonNull(text);
-        return templates.stream().map(template -> newEvent(template, text))
-                .filter(Optional::isPresent).map(Optional::get).collect(Collectors.toList());
+        Optional<Event> event = templates.stream()
+                .map(t -> newEvent(t, text))
+                .filter(Optional::isPresent)
+                .findFirst()
+                .orElse(Optional.empty());
+        return event.isPresent() ? Collections.singletonList(event.get()) : Collections.emptyList();
     }
 
     protected Optional<Event> newEvent(@NotNull Template template, @NotNull String text) {
@@ -46,11 +53,11 @@ public class CoreService {
                 if (cases.size() == 1) {
                     builder.merge(cases.get(0));
                 } else if (!cases.isEmpty()) {
+                    //builder.merge(cases.get(0));
                     throw new NotImplementedException("ambiguous variants while parsing :" + placeholder + " cases: " + cases);
                 } else {
                     //throw new RuntimeException(placeholder.toString() + " cases: " + cases);
                 }
-                // else warn
             }
             return Optional.of(builder.type(template.type()).build());
         } else return Optional.empty();

@@ -2,6 +2,7 @@ package com.yrrlsv.fin;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Assert;
 import org.junit.Before;
@@ -14,6 +15,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Currency;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -222,5 +224,95 @@ public class CoreServiceTest {
                 .payer("26208455083205").amount(new BigDecimal("9500")).balance(new BigDecimal("9500"))
                 .recipient("Patenko Yaroslav Sviatoslavovych").build()));
     }
+
+    @Test
+    public void extended2ndTemplate() {
+        String ok = "OTPdirekt:22.05.2015 15:19: Popovnennya rahunku: 26253455156239. " +
+                "Suma: 2000,00 UAH Zalyshok: -6637,41 UAH Platnyk: Yaroslav Patenko";
+        String msg = "OTPdirekt:25.05.2015 16:42: Popovnennya rahunku: 26208455083205. " +
+                "Suma: 19,18 UAH Zalyshok: --- UAH Platnyk: VS PIF \"Arhentum\" TOV \"Drahon Eset Men";
+
+        Template otp_replenish = new Template(EventType.replenishment,
+                "OTPdirekt:(.+): " +
+                        "Popovnennya rahunku: (.+). " +
+                        "Suma: (.+) " +
+                        "Zalyshok: (.+) " +
+                        "Platnyk: (.+)",
+                Arrays.asList(Placeholder.of(date), Placeholder.of(account), Placeholder.of(amount, currency),
+                        Placeholder.of(balance, none), Placeholder.of(shop)));
+        Template otp_replenish_wo_balance = new Template(EventType.replenishment,
+                "OTPdirekt:(.+): " +
+                        "Popovnennya rahunku: (.+). " +
+                        "Suma: (.+) " +
+                        "Zalyshok: --- UAH " +
+                        "Platnyk: (.+)",
+                Arrays.asList(Placeholder.of(date), Placeholder.of(account), Placeholder.of(amount, currency),
+                        Placeholder.of(shop)));
+        CoreService service = new CoreService(Sets.newHashSet(otp_replenish, otp_replenish_wo_balance));
+        List<Event> events = service.parse(msg);
+        assertThat(events.size(), is(1));
+        System.out.println(events.get(0));
+    }
+
+    @Test
+    public void wtf() {
+        String msg = "OTPdirekt:VIDMINA: 10.12.14 22:24: Splata za tovar/poslugu. " +
+                "Kartka *8310. " +
+                "Suma: -226,00UAH (-226,00UAH). " +
+                "Misce: CAFE PODSHOFFE KYIV. " +
+                "Zalyshok: 5.604,40UAH.";
+        String rub = "OTPdirekt:05.01.15 09:28: Splata za tovar/poslugu. " +
+                "Kartka *8310. " +
+                "Suma: -334,00RUB (-88,62UAH). " +
+                "Misce: CAFE KROSHKA KARTOSHKA HIMKI. " +
+                "Zalyshok: 1.546,91UAH.";
+
+        Template otp_charge = new Template(EventType.charge,
+                "(.+)\nSplata za tovar/poslugu.\n" +
+                        "Kartka (.+). " +
+                        "Suma:\n(.+). " +
+                        "Misce:\n(.+).\n" +
+                        "Zalyshok: (.+)", Arrays.<Placeholder>asList(Placeholder.of(date), Placeholder.of(account),
+                Placeholder.of(amount, currency), Placeholder.of(shop), Placeholder.of(balance, none)
+        ));
+        Template otp_charge1 = new Template(EventType.charge,
+                "OTPdirekt:(.+): Splata za tovar/poslugu. " +
+                        "Kartka (.+). " +
+                        "Suma: (.+). " +
+                        "Misce: (.+). " +
+                        "Zalyshok: (.+).",
+                Arrays.<Placeholder>asList(Placeholder.of(date), Placeholder.of(account),
+                        Placeholder.of(amount, currency), Placeholder.of(shop), Placeholder.of(balance, none)
+                ));
+        String reg = "OTPdirekt:(.+): Splata za tovar/poslugu. " +
+                "Kartka *8310. " +
+                "Suma: -334,00RUB (-88,62UAH). " +
+                "Misce: CAFE KROSHKA KARTOSHKA HIMKI. " +
+                "Zalyshok: 1.546,91UAH.";
+        Template otp_charge2 = new Template(EventType.charge,
+                "OTPdirekt:(.+): Splata za tovar/poslugu. " +
+                        "Kartka (.+). " +
+                        "Suma: (.+) \\((.+)\\). " +
+                        "Misce: (.+). " +
+                        "Zalyshok: (.+).",
+                Arrays.<Placeholder>asList(Placeholder.of(date), Placeholder.of(account),
+                        Placeholder.of(amount, currency), Placeholder.of(none), Placeholder.of(shop), Placeholder.of(balance, none)
+                ));
+        Template otp_cancel = new Template(EventType.replenishment,
+                "OTPdirekt:VIDMINA: (.+): Splata za tovar/poslugu. " +
+                        "Kartka (.+). " +
+                        "Suma: (.+) \\((.+)\\). " +
+                        "Misce: (.+). " +
+                        "Zalyshok: (.+).", Arrays.<Placeholder>asList(Placeholder.of(date), Placeholder.of(account),
+                Placeholder.of(amount, currency), Placeholder.of(none), Placeholder.of(shop), Placeholder.of(balance, none)
+        ));
+        CoreService service = new CoreService(new LinkedHashSet<>(Arrays.asList(
+                /*otp_cancel, */otp_charge2/*, otp_charge1, otp_charge*/)));
+        List<Event> events = service.parse(rub);
+        assertThat(events.size(), is(1));
+        System.out.println(events.get(0));
+    }
+
+
 
 }

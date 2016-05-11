@@ -1,7 +1,6 @@
 package com.yrrlsv.fin;
 
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -25,7 +24,10 @@ public class DumpReader {
     private boolean skeepTemplateCreation = true;
     private boolean skeepTemplateChoice = true;
 
-    public DumpReader(TemplateProvider templateProvider, DataProvider dataProvider, EventBus eventBus, Collection<Template> templates) {
+    public DumpReader(TemplateProvider templateProvider,
+                      DataProvider dataProvider,
+                      EventBus eventBus,
+                      Collection<Template> templates) {
         this.templateProvider = templateProvider;
         this.dataProvider = dataProvider;
         this.eventBus = eventBus;

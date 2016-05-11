@@ -140,6 +140,8 @@ class DateParser extends RegexParser<LocalDateTime> {
                             s -> LocalDateTime.parse(s, DateTimeFormatter.ofPattern("dd.MM.yy HH:mm")))
                     .put(Pattern.compile("\\d\\d.\\d\\d\\.\\d\\d\\d\\d\\s\\d\\d\\:\\d\\d"),
                             s -> LocalDateTime.parse(s, DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")))
+                    .put(Pattern.compile("\\d{2}\\:\\d{2}\\:\\d{2} \\d{2}\\/\\d{2}\\/\\d{4}"),
+                            s -> LocalDateTime.parse(s, DateTimeFormatter.ofPattern("HH:mm:ss dd/MM/yyyy")))
                     .build();
 
     public DateParser(Function<LocalDateTime, Event.Builder> builderFunction) {
