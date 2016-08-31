@@ -14,7 +14,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Currency;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -46,6 +45,7 @@ public interface Parser {
         private String before;
         private Event.Builder data;
         private String after;
+        // private String regex; ??
 
         public Result(String before, Event.Builder data, String after) {
             this.before = before;
@@ -96,68 +96,93 @@ public interface Parser {
         }
     }
 
-    List<Result> parse(String data);
+    List<Result> parse(Template.Content content, Message message, String data);
 
 }
 
 class DummyParser implements Parser {
     @Override
-    public List<Result> parse(String data) {
+    public List<Result> parse(Template.Content content, Message message, String data) {
         return Collections.singletonList(new Result("", new Event.Builder(), ""));
     }
 }
 
-class RegexParser<T> implements Parser {
+abstract class RegexParser<T> implements Parser {
     protected final Function<T, Event.Builder> applier;
-    protected final Map<Pattern, Function<String, T>> patterns;
 
-    public RegexParser(Map<Pattern, Function<String, T>> patterns, Function<T, Event.Builder> builderFunction) {
-        this.patterns = patterns;
-        applier = builderFunction;
+    public RegexParser(Function<T, Event.Builder> applier) {
+        this.applier = applier;
     }
 
-    public List<Parser.Result> parse(String data) {
+    public List<Parser.Result> parse(Template.Content content, Message message, String data) {
         ImmutableList.Builder<Parser.Result> results = new ImmutableList.Builder<>();
-        for (Map.Entry<Pattern, Function<String, T>> entry : patterns.entrySet()) {
-            Matcher matcher = entry.getKey().matcher(data);
-            while (matcher.find()) {
-                String group = matcher.group();
-                results.add(new Parser.Result(
-                        data.substring(0, matcher.start()),
-                        applier.apply(entry.getValue().apply(group)),
-                        data.substring(matcher.end())));
-            }
+        Matcher matcher = pattern(content).matcher(data);
+        while (matcher.find()) {
+            String group = matcher.group();
+            results.add(new Parser.Result(
+                    data.substring(0, matcher.start()),
+                    applier.apply(format(content, group)),
+                    data.substring(matcher.end())));
         }
         return results.build();
     }
+
+    protected abstract Pattern pattern(Template.Content content);
+
+    protected abstract T format(Template.Content content, String match);
 }
 
 class DateParser extends RegexParser<LocalDateTime> {
 
+    // T0D0: cache DateTimeFormatter instead of compiling it each time
     public static final ImmutableMap<Pattern, Function<String, LocalDateTime>> formatters =
             new ImmutableMap.Builder<Pattern, Function<String, LocalDateTime>>()
                     .put(Pattern.compile("\\d\\d.\\d\\d\\.\\d\\d\\s\\d\\d\\:\\d\\d"),
-                            s -> LocalDateTime.parse(s, DateTimeFormatter.ofPattern("dd.MM.yy HH:mm")))
+                            s -> localDateTime(s, "dd.MM.yy HH:mm"))
                     .put(Pattern.compile("\\d\\d.\\d\\d\\.\\d\\d\\d\\d\\s\\d\\d\\:\\d\\d"),
-                            s -> LocalDateTime.parse(s, DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")))
+                            s -> localDateTime(s, "dd.MM.yyyy HH:mm"))
                     .put(Pattern.compile("\\d{2}\\:\\d{2}\\:\\d{2} \\d{2}\\/\\d{2}\\/\\d{4}"),
-                            s -> LocalDateTime.parse(s, DateTimeFormatter.ofPattern("HH:mm:ss dd/MM/yyyy")))
+                            s -> localDateTime(s, "HH:mm:ss dd/MM/yyyy"))
+                    .put(Pattern.compile("\\d{14}"),
+                            s -> localDateTime(s, "yyyyMMddHHmmss"))
+                    .put(Pattern.compile("\\d{2}\\/\\d{2} \\d{2}:\\d{2}"),
+                            s -> noYearDateTime(s, "dd/MM HH:mm"))
+                    .put(Pattern.compile("\\d{2}\\.\\d{2} \\d{2}:\\d{2}"),
+                            s -> noYearDateTime(s, "MM.dd HH:mm"))
                     .build();
 
+    private static LocalDateTime localDateTime(String s, String pattern) {
+        return LocalDateTime.parse(s, DateTimeFormatter.ofPattern(pattern));
+    }
+
+    private static LocalDateTime noYearDateTime(String s, String pattern) {
+        return localDateTime("2016_" + s, "yyyy_" + pattern); //  ¯\_(ツ)_/¯
+    }
+
     public DateParser(Function<LocalDateTime, Event.Builder> builderFunction) {
-        super(formatters, builderFunction);
+        super(builderFunction);
+    }
+
+    @Override
+    protected Pattern pattern(Template.Content content) {
+        return content.getDateTimePattern();
+    }
+
+    @Override
+    protected LocalDateTime format(Template.Content content, String match) {
+        return LocalDateTime.parse(match, content.getDateTimeFormatter());
     }
 }
 
 class MoneyParser extends RegexParser<BigDecimal> implements Parser {
     private static final Pattern dotsComma =
-            Pattern.compile("(?<![\\'\\,\\.\\d])[1-9]\\d{0,2}(?:\\.\\d{3})+(?:\\,\\d{2,})?(?![\\'\\,\\.\\d])");
+            Pattern.compile("(?<![\\'\\,\\.\\d])[1-9]\\d{0,2}(?:\\.\\d{3})+(?:\\,\\d+)?(?![\\'\\,\\.\\d])");
     private static final Pattern commasDots =
-            Pattern.compile("(?<![\\'\\,\\.\\d])[1-9]\\d{0,2}(?:\\,\\d{3})+(?:\\.\\d{2,})?(?![\\'\\,\\.\\d])");
+            Pattern.compile("(?<![\\'\\,\\.\\d])[1-9]\\d{0,2}(?:\\,\\d{3})+(?:\\.\\d+)?(?![\\'\\,\\.\\d])");
     private static final Pattern quotes =
-            Pattern.compile("(?<![\\'\\,\\.\\d])[1-9]\\d{0,2}(?:\\'\\d{3})+(?:[\\.\\,]\\d{2,})?(?![\\'\\,\\.\\d])");
+            Pattern.compile("(?<![\\'\\,\\.\\d])[1-9]\\d{0,2}(?:\\'\\d{3})+(?:[\\.\\,]\\d+)?(?![\\'\\,\\.\\d])");
     private static final Pattern justFloating =
-            Pattern.compile("(?<![\\'\\,\\.\\d])(?:0|[1-9]\\d*)(?:[\\,\\.]\\d{2,})?(?![\\'\\,\\.\\d])");
+            Pattern.compile("(?<![\\'\\,\\.\\d])(?:0|[1-9]\\d*)(?:[\\,\\.]\\d+)?(?![\\'\\,\\.\\d])");
 
     public static final ImmutableMap<Pattern, Function<String, BigDecimal>> refiners =
             new ImmutableMap.Builder<Pattern, Function<String, BigDecimal>>()
@@ -187,7 +212,22 @@ class MoneyParser extends RegexParser<BigDecimal> implements Parser {
     }
 
     MoneyParser(Function<BigDecimal, Event.Builder> builderFunction) {
-        super(refiners, builderFunction);
+        super(builderFunction);
+    }
+
+    @Override
+    protected Pattern pattern(Template.Content content) {
+        return content.moneyPattern();
+    }
+
+    @Override
+    protected BigDecimal format(Template.Content content, String match) {
+        try {
+            return (BigDecimal) content.moneyFormat().parse(match);
+        } catch (ParseException ignored) {
+        }
+        return BigDecimal.ZERO;
+
     }
 }
 
@@ -199,14 +239,14 @@ class AccountParser implements Parser {
     }
 
     @Override
-    public List<Result> parse(String data) {
+    public List<Result> parse(Template.Content content, Message message, String data) {
         return Collections.singletonList(new Result("", applier.apply(data), ""));
     }
 }
 
 class CurrencyParser implements Parser {
     @Override
-    public List<Result> parse(String data) {
+    public List<Result> parse(Template.Content content, Message message, String data) {
         ImmutableList.Builder<Result> results = new ImmutableList.Builder<>();
         String upperCaseData = data.toUpperCase();
         for (Currency currency : Currency.getAvailableCurrencies()) {

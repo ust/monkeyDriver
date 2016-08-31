@@ -36,7 +36,7 @@ public class DumpReader {
 
     public void execute() {
         int failed = 0;
-        for (String message = dataProvider.nextMessage(); message != null; message = dataProvider.nextMessage()) {
+        for (Message message = dataProvider.nextMessage(); message != null; message = dataProvider.nextMessage()) {
 
             List<Event> results = null;
             try {
@@ -50,7 +50,7 @@ public class DumpReader {
 
             Event event = null;
             if (results != null && results.isEmpty() && !skeepTemplateCreation) {
-                Optional<Template> templateOptional = templateProvider.newTemplate(message);
+                Optional<Template> templateOptional = templateProvider.newTemplate(message.text());
                 if (templateOptional.isPresent()) {
                     coreService.addTemplate(templateOptional.get());
                     event = coreService.newEvent(templateOptional.get(), message).get();
@@ -61,7 +61,7 @@ public class DumpReader {
                 event = templateProvider.chooseTemplate(results);
             }
 
-            eventBus.fire(event != null ? event : Event.failed(message));
+            eventBus.fire(event != null ? event : Event.failed(message.text()));
         }
     }
 

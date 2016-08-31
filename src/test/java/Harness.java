@@ -1,3 +1,4 @@
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.yrrlsv.fin.CoreService;
 import com.yrrlsv.fin.Event;
@@ -19,6 +20,8 @@ import java.util.Collections;
 import java.util.Currency;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.NavigableSet;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -126,11 +129,11 @@ public class Harness {
         *
         * */
 
-        String message = "OTPdirekt:VIDMINA: 04.12.14 23:04: " +
+        Message message = new Message("OTPdirekt:VIDMINA: 04.12.14 23:04: " +
                 "Povernennya tovaru. Kartka *8310. " +
                 "Suma: 2.500,00UAH (2.500,00UAH). " +
                 "Misce: DELTA PAY2YOU 2 KIEV. " +
-                "Zalyshok: 103,40UAH.";
+                "Zalyshok: 103,40UAH.");
         String regex = "OTPdirekt:VIDMINA: (.+): " +
                 "Povernennya tovaru. Kartka (.+). " +
                 "Suma: (.+) \\((.+)\\). " +
@@ -140,7 +143,13 @@ public class Harness {
                 Placeholder.of(date), Placeholder.of(account), Placeholder.of(amount, currency),
                 Placeholder.of(none), Placeholder.of(shop), Placeholder.of(balance, none)
         );
-        Template template = new Template(EventType.replenishment, regex, placeholders);
+        String dateTimeFormatter = null;
+        String moneyRegex = null;
+        String moneyFormat = null;
+        String currencyRegex = null;
+        // todo
+        Template template = new Template(EventType.replenishment, regex, placeholders,
+                "", dateTimeFormatter, moneyRegex, moneyFormat, currencyRegex);
 
         CoreService service = new CoreService(Collections.singleton(template));
         List<Event> events = service.parse(message);
@@ -153,42 +162,24 @@ public class Harness {
     }
 
     @Test
-    public void smthWentWrong() {
-        String text = "OTPdirekt:29.09.2014 16:04: " +
-                "Popovnennya rahunku: 26208455083205. " +
-                "Suma: 9500,00 UAH Zalyshok: 9500,00 UAH " +
-                "Platnyk: Patenko Yaroslav Sviatoslavovych";
-        String tmplt = "OTPdirekt:(.+): Popovnennya rahunku: (.+). Suma: (.+) Zalyshok: (.+) UAH Platnyk: (.+)";
-
-        Template template = Template.newTemplate(EventType.replenishment, tmplt,
-                Arrays.asList(Placeholder.of(date), Placeholder.of(account), Placeholder.of(amount, currency),
-                        Placeholder.of(balance), Placeholder.of(shop)));
-        List<Event> results = new CoreService(Collections.singleton(template)).parse(text);
-        assertThat(results.size(), is(1));
-        assertThat(results.get(0), is(new Event.Builder().type(EventType.replenishment)
-                .date(LocalDateTime.parse("2014-09-29T16:04")).currency(Currency.getInstance("UAH"))
-                .payer("26208455083205").amount(new BigDecimal("9500")).balance(new BigDecimal("9500"))
-                .recipient("Patenko Yaroslav Sviatoslavovych").build()));
-    }
-
-    @Test
     public void damnReplenish() {
-        String msg = "OTP Smart: 11:33:10 14/12/2015\r\n" +
-                "Pidtverdzhennya platezhu.\r\n" +
-                "Suma: 1500.00 UAH\r\nKod avtoryzatsii: 468820\r\n" +
-                "Diysnyi do 11:43:10";
+        Message msg = new Message("OTPdirekt:2015 08 04 09 37 05: " +
+                "Splata za tovar/poslugu. " +
+                "Kartka *5768. " +
+                "Suma: -594,00UAH . " +
+                "Misce: KLINIKA ZDRAVYTSIA KYIV. " +
+                "Zalyshok: 9.357,42UAH.");
 
-        String rgx = "OTP Smart: (.+)\r\n" +
-                "Pidtverdzhennya platezhu.\r\n" +
-                "Suma: (.+)\r\nKod avtoryzatsii: (.+)\r\r" +
-                "Diysnyi do 11:43:10";
-        String regex = "OTP Smart: (.+)\r\n(.+)\r\nSuma: (.+)\r\nKod avtoryzatsii: (.+)\r\nDiysnyi do (.+)";
-
-        Template otp_withdrawal2 = new Template(EventType.promo,
-                regex,
-                Arrays.<Placeholder>asList(Placeholder.of(none), Placeholder.of(none), Placeholder.of(none), Placeholder.of(none),
-                        Placeholder.of(none)
-                ));
+        Template otp_withdrawal2 = new Template(EventType.replenishment,
+                "Vidmova:Nedostatno koshtiv abo limit\n" +
+                        "(.+)\n" +
+                        "Splata za tovar/poslugu.\n" +
+                        "Kartka (.+). Suma:\n" +
+                        "(.+). Misce:\n" +
+                        "(.+). \n" +
+                        "Zalyshok: (.+)", Arrays.<Placeholder>asList(Placeholder.of(date), Placeholder.of(account),
+                Placeholder.of(amount, currency), Placeholder.of(shop), Placeholder.of(balance)
+        ), null, null, null, null, null);
         CoreService service = new CoreService(Sets.newHashSet(otp_withdrawal2));
         List<Event> events = service.parse(msg);
         assertThat(events.size(), is(1));
@@ -204,4 +195,5 @@ public class Harness {
                 .map(integer -> integer + "")
                 .collect(Collectors.toList()));
     }
+
 }

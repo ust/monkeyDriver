@@ -1,19 +1,16 @@
 package com.yrrlsv.fin;
 
-import com.google.common.collect.Iterators;
-
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Unmarshaller;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.InputStream;
 import java.util.Collections;
 import java.util.Iterator;
 
 public class AndroidBackupDataProvider implements DataProvider {
 
-    private Iterator<String> iterator;
+    private Iterator<Message> iterator;
 
     public AndroidBackupDataProvider(String path) {
         Messages messages;
@@ -23,13 +20,11 @@ public class AndroidBackupDataProvider implements DataProvider {
         } catch (JAXBException | FileNotFoundException e) {
             throw new RuntimeException(e);
         }
-        iterator = messages != null
-                ? Iterators.transform(messages.list().iterator(), Message::text)
-                : Collections.emptyIterator();
+        iterator = messages != null ? messages.list().iterator() : Collections.emptyIterator();
     }
 
     @Override
-    public String nextMessage() {
+    public Message nextMessage() {
         return iterator.hasNext() ? iterator.next() : null;
     }
 }

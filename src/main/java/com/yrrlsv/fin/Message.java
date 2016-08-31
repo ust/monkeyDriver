@@ -14,6 +14,13 @@ public class Message {
         return text;
     }
 
+    public Message() {
+    }
+
+    public Message(String text) {
+        this.text = text;
+    }
+
     @Override
     public String toString() {
         return "Message{" +

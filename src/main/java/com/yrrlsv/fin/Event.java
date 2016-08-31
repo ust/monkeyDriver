@@ -64,11 +64,11 @@ public class Event {
         return currency;
     }
 
-    public LocalDateTime getDate() {
+    public LocalDateTime date() {
         return date;
     }
 
-    public BigDecimal getAmount() {
+    public BigDecimal amount() {
         return amount;
     }
 
